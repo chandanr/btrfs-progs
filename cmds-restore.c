@@ -18,6 +18,7 @@
 
 #define _XOPEN_SOURCE 500
 #define _GNU_SOURCE 1
+#define _BSD_SOURCE 1
 
 #include "kerncompat.h"
 
@@ -35,6 +36,7 @@
 #include <getopt.h>
 #include <sys/types.h>
 #include <attr/xattr.h>
+#include <sys/time.h>
 
 #include "ctree.h"
 #include "disk-io.h"
@@ -541,6 +543,7 @@ static int copy_file(struct btrfs_root *root, int fd, struct btrfs_key *key,
 	struct btrfs_file_extent_item *fi;
 	struct btrfs_inode_item *inode_item;
 	struct btrfs_key found_key;
+	struct timeval times[2];
 	int ret;
 	int extent_type;
 	int compression;
@@ -559,6 +562,16 @@ static int copy_file(struct btrfs_root *root, int fd, struct btrfs_key *key,
 		inode_item = btrfs_item_ptr(path->nodes[0], path->slots[0],
 				    struct btrfs_inode_item);
 		found_size = btrfs_inode_size(path->nodes[0], inode_item);
+		times[0].tv_sec = btrfs_timespec_sec(path->nodes[0],
+					btrfs_inode_atime(inode_item));
+		times[0].tv_usec = btrfs_timespec_nsec(path->nodes[0],
+					btrfs_inode_atime(inode_item));
+		times[0].tv_usec /= 1000;
+		times[1].tv_sec = btrfs_timespec_sec(path->nodes[0],
+					btrfs_inode_mtime(inode_item));
+		times[1].tv_usec = btrfs_timespec_nsec(path->nodes[0],
+					btrfs_inode_mtime(inode_item));
+		times[1].tv_usec /= 1000;
 	}
 	btrfs_release_path(path);
 
@@ -583,7 +596,7 @@ static int copy_file(struct btrfs_root *root, int fd, struct btrfs_key *key,
 		} else if (ret > 0) {
 			/* No more leaves to search */
 			btrfs_free_path(path);
-			return 0;
+			goto set_size;
 		}
 		leaf = path->nodes[0];
 	}
@@ -661,6 +674,10 @@ set_size:
 		if (ret)
 			return ret;
 	}
+	ret = futimes(fd, times);
+	if (ret)
+		fprintf(stderr, "Error setting times on '%s': %d\n",
+			file, errno);
 	return 0;
 }
 
@@ -672,6 +689,7 @@ static int search_dir(struct btrfs_root *root, struct btrfs_key *key,
 	struct extent_buffer *leaf;
 	struct btrfs_dir_item *dir_item;
 	struct btrfs_key found_key, location;
+	struct btrfs_key dir_key;
 	char filename[BTRFS_NAME_LEN + 1];
 	unsigned long name_ptr;
 	int name_len;
@@ -679,6 +697,8 @@ static int search_dir(struct btrfs_root *root, struct btrfs_key *key,
 	int fd;
 	int loops = 0;
 	u8 type;
+
+	memcpy(&dir_key, key, sizeof(dir_key));
 
 	path = btrfs_alloc_path();
 	if (!path) {
@@ -909,6 +929,31 @@ next:
 
 	if (verbose)
 		printf("Done searching %s\n", in_dir);
+	btrfs_release_path(path);
+
+	ret = btrfs_lookup_inode(NULL, root, path, &dir_key, 0);
+	if (ret == 0) {
+		struct timeval times[2];
+		struct btrfs_inode_item *inode_item;
+
+		inode_item = btrfs_item_ptr(path->nodes[0], path->slots[0],
+				    struct btrfs_inode_item);
+		times[0].tv_sec = btrfs_timespec_sec(path->nodes[0],
+					btrfs_inode_atime(inode_item));
+		times[0].tv_usec = btrfs_timespec_nsec(path->nodes[0],
+					btrfs_inode_atime(inode_item));
+		times[0].tv_usec /= 1000;
+		times[1].tv_sec = btrfs_timespec_sec(path->nodes[0],
+					btrfs_inode_mtime(inode_item));
+		times[1].tv_usec = btrfs_timespec_nsec(path->nodes[0],
+					btrfs_inode_mtime(inode_item));
+		times[1].tv_usec /= 1000;
+		snprintf(path_name, 4096, "%s%s", output_rootdir, in_dir);
+		ret = utimes(path_name, times);
+		if (ret)
+			fprintf(stderr, "Error setting times on '%s': %d\n",
+				path_name, errno);
+	}
 	btrfs_free_path(path);
 	return 0;
 }
