@@ -3867,6 +3867,7 @@ static int run_next_block(struct btrfs_trans_handle *trans,
 			if (ret == -EEXIST)
 				continue;
 
+			BUG_ON(bits[i].size != root->nodesize);
 			/* fixme, get the parent transid */
 			readahead_tree_block(root, bits[i].start,
 					     bits[i].size, 0);
@@ -3906,6 +3907,7 @@ static int run_next_block(struct btrfs_trans_handle *trans,
 	}
 
 	/* fixme, get the real parent transid */
+	BUG_ON(size != root->nodesize);
 	buf = read_tree_block(root, bytenr, size, gen);
 	if (!extent_buffer_uptodate(buf)) {
 		record_bad_block_io(root->fs_info,
