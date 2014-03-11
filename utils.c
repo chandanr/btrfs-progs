@@ -183,6 +183,7 @@ int make_btrfs(int fd, struct btrfs_mkfs_config *cfg)
 {
 	struct btrfs_super_block super;
 	struct extent_buffer *buf = NULL;
+	struct extent_buffer *sb_ext_buf = NULL;
 	struct btrfs_root_item root_item;
 	struct btrfs_disk_key disk_key;
 	struct btrfs_extent_item *extent_item;
@@ -549,13 +550,19 @@ int make_btrfs(int fd, struct btrfs_mkfs_config *cfg)
 	}
 
 	/* and write out the super block */
-	BUG_ON(sizeof(super) > cfg->sectorsize);
-	memset(buf->data, 0, cfg->sectorsize);
-	memcpy(buf->data, &super, sizeof(super));
-	buf->len = cfg->sectorsize;
-	csum_tree_block_size(buf, BTRFS_CRC32_SIZE, 0);
-	ret = pwrite(fd, buf->data, cfg->sectorsize, cfg->blocks[0]);
-	if (ret != cfg->sectorsize) {
+	sb_ext_buf = malloc(sizeof(*sb_ext_buf) + BTRFS_SUPER_INFO_SIZE);
+	if (sb_ext_buf == NULL) {
+		ret = -ENOMEM;
+		goto out;
+	}
+	memset(sb_ext_buf->data, 0, BTRFS_SUPER_INFO_SIZE);
+	memcpy(sb_ext_buf->data, &super, sizeof(super));
+	sb_ext_buf->len = BTRFS_SUPER_INFO_SIZE;
+
+	csum_tree_block_size(sb_ext_buf, BTRFS_CRC32_SIZE, 0);
+	ret = pwrite(fd, sb_ext_buf->data, BTRFS_SUPER_INFO_SIZE,
+		cfg->blocks[0]);
+	if (ret != BTRFS_SUPER_INFO_SIZE) {
 		ret = (ret < 0 ? -errno : -EIO);
 		goto out;
 	}
@@ -563,6 +570,7 @@ int make_btrfs(int fd, struct btrfs_mkfs_config *cfg)
 	ret = 0;
 
 out:
+	free(sb_ext_buf);
 	free(buf);
 	return ret;
 }
