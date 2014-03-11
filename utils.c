@@ -1006,7 +1006,8 @@ int make_btrfs(int fd, struct btrfs_mkfs_config *cfg,
 		struct btrfs_convert_context *cctx)
 {
 	struct btrfs_super_block super;
-	struct extent_buffer *buf;
+	struct extent_buffer *buf = NULL;
+	struct extent_buffer *sb_ext_buf = NULL;
 	struct btrfs_root_item root_item;
 	struct btrfs_disk_key disk_key;
 	struct btrfs_extent_item *extent_item;
@@ -1376,12 +1377,18 @@ int make_btrfs(int fd, struct btrfs_mkfs_config *cfg,
 	}
 
 	/* and write out the super block */
-	BUG_ON(sizeof(super) > cfg->sectorsize);
-	memset(buf->data, 0, BTRFS_SUPER_INFO_SIZE);
-	memcpy(buf->data, &super, sizeof(super));
-	buf->len = BTRFS_SUPER_INFO_SIZE;
-	csum_tree_block_size(buf, BTRFS_CRC32_SIZE, 0);
-	ret = pwrite(fd, buf->data, BTRFS_SUPER_INFO_SIZE, cfg->blocks[0]);
+	sb_ext_buf = malloc(sizeof(*sb_ext_buf) + BTRFS_SUPER_INFO_SIZE);
+	if (sb_ext_buf == NULL) {
+		ret = -ENOMEM;
+		goto out;
+	}
+	memset(sb_ext_buf->data, 0, BTRFS_SUPER_INFO_SIZE);
+	memcpy(sb_ext_buf->data, &super, sizeof(super));
+	sb_ext_buf->len = BTRFS_SUPER_INFO_SIZE;
+
+	csum_tree_block_size(sb_ext_buf, BTRFS_CRC32_SIZE, 0);
+	ret = pwrite(fd, sb_ext_buf->data, BTRFS_SUPER_INFO_SIZE,
+		cfg->blocks[0]);
 	if (ret != BTRFS_SUPER_INFO_SIZE) {
 		ret = (ret < 0 ? -errno : -EIO);
 		goto out;
@@ -1390,6 +1397,7 @@ int make_btrfs(int fd, struct btrfs_mkfs_config *cfg,
 	ret = 0;
 
 out:
+	free(sb_ext_buf);
 	free(buf);
 	return ret;
 }
@@ -1568,10 +1576,9 @@ int btrfs_add_to_fsid(struct btrfs_trans_handle *trans,
 	device = kzalloc(sizeof(*device), GFP_NOFS);
 	if (!device)
 		goto err_nomem;
-	buf = kzalloc(sectorsize, GFP_NOFS);
+	buf = kzalloc(BTRFS_SUPER_INFO_SIZE, GFP_NOFS);
 	if (!buf)
 		goto err_nomem;
-	BUG_ON(sizeof(*disk_super) > sectorsize);
 
 	disk_super = (struct btrfs_super_block *)buf;
 	dev_item = &disk_super->dev_item;
@@ -1614,8 +1621,8 @@ int btrfs_add_to_fsid(struct btrfs_trans_handle *trans,
 	btrfs_set_stack_device_bytes_used(dev_item, device->bytes_used);
 	memcpy(&dev_item->uuid, device->uuid, BTRFS_UUID_SIZE);
 
-	ret = pwrite(fd, buf, sectorsize, BTRFS_SUPER_INFO_OFFSET);
-	BUG_ON(ret != sectorsize);
+	ret = pwrite(fd, buf, BTRFS_SUPER_INFO_SIZE, BTRFS_SUPER_INFO_OFFSET);
+	BUG_ON(ret != BTRFS_SUPER_INFO_SIZE);
 
 	kfree(buf);
 	list_add(&device->dev_list, &root->fs_info->fs_devices->devices);
