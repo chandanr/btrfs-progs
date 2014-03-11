@@ -1436,35 +1436,35 @@ static int check_super(struct btrfs_super_block *sb)
 		goto error_out;
 	}
 
-	if (!IS_ALIGNED(btrfs_super_root(sb), 4096)) {
+	if (!IS_ALIGNED(btrfs_super_root(sb), 2048)) {
 		error("tree_root block unaligned: %llu", btrfs_super_root(sb));
 		goto error_out;
 	}
-	if (!IS_ALIGNED(btrfs_super_chunk_root(sb), 4096)) {
+	if (!IS_ALIGNED(btrfs_super_chunk_root(sb), 2048)) {
 		error("chunk_root block unaligned: %llu",
 			btrfs_super_chunk_root(sb));
 		goto error_out;
 	}
-	if (!IS_ALIGNED(btrfs_super_log_root(sb), 4096)) {
+	if (!IS_ALIGNED(btrfs_super_log_root(sb), 2048)) {
 		error("log_root block unaligned: %llu",
 			btrfs_super_log_root(sb));
 		goto error_out;
 	}
-	if (btrfs_super_nodesize(sb) < 4096) {
-		error("nodesize too small: %u < 4096",
+	if (btrfs_super_nodesize(sb) < 2048) {
+		error("nodesize too small: %u < 2048",
 			btrfs_super_nodesize(sb));
 		goto error_out;
 	}
-	if (!IS_ALIGNED(btrfs_super_nodesize(sb), 4096)) {
+	if (!IS_ALIGNED(btrfs_super_nodesize(sb), 2048)) {
 		error("nodesize unaligned: %u", btrfs_super_nodesize(sb));
 		goto error_out;
 	}
-	if (btrfs_super_sectorsize(sb) < 4096) {
-		error("sectorsize too small: %u < 4096",
+	if (btrfs_super_sectorsize(sb) < 2048) {
+		error("sectorsize too small: %u < 2048",
 			btrfs_super_sectorsize(sb));
 		goto error_out;
 	}
-	if (!IS_ALIGNED(btrfs_super_sectorsize(sb), 4096)) {
+	if (!IS_ALIGNED(btrfs_super_sectorsize(sb), 2048)) {
 		error("sectorsize unaligned: %u", btrfs_super_sectorsize(sb));
 		goto error_out;
 	}
@@ -1476,7 +1476,7 @@ static int check_super(struct btrfs_super_block *sb)
 		error("invalid bytes_used %llu", btrfs_super_bytes_used(sb));
 		goto error_out;
 	}
-	if (btrfs_super_stripesize(sb) != 4096) {
+	if (btrfs_super_stripesize(sb) != btrfs_super_sectorsize(sb)) {
 		error("invalid stripesize %u", btrfs_super_stripesize(sb));
 		goto error_out;
 	}

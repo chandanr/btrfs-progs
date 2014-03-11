@@ -1481,7 +1481,6 @@ int main(int argc, char **argv)
 		printf("See %s for more information.\n\n", PACKAGE_URL);
 	}
 
-	sectorsize = max(sectorsize, (u32)sysconf(_SC_PAGESIZE));
 	stripesize = sectorsize;
 
 	saved_optind = optind;
