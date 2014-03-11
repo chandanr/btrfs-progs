@@ -1321,7 +1321,6 @@ int main(int ac, char **av)
 				print_usage(c != GETOPT_VAL_HELP);
 		}
 	}
-	sectorsize = max(sectorsize, (u32)sysconf(_SC_PAGESIZE));
 	stripesize = sectorsize;
 	if (btrfs_check_nodesize(nodesize, sectorsize))
 		exit(1);
