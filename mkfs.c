@@ -1348,7 +1348,7 @@ int main(int argc, char **argv)
 	u32 nodesize = max_t(u32, sysconf(_SC_PAGESIZE),
 			BTRFS_MKFS_DEFAULT_NODE_SIZE);
 	u32 sectorsize = 4096;
-	u32 stripesize = 4096;
+	u32 stripesize;
 	int zero_end = 1;
 	int fd;
 	int ret;
@@ -1482,6 +1482,8 @@ int main(int argc, char **argv)
 	}
 
 	sectorsize = max(sectorsize, (u32)sysconf(_SC_PAGESIZE));
+	stripesize = sectorsize;
+
 	saved_optind = optind;
 	dev_cnt = argc - optind;
 	if (dev_cnt == 0)
