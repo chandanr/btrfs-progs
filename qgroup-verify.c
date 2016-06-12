@@ -682,7 +682,7 @@ static void add_bytes(u64 root_objectid, u64 num_bytes, int exclusive)
 	struct qgroup_count *count = find_count(root_objectid);
 	struct qgroup_info *qg;
 
-	BUG_ON(num_bytes < 4096); /* Random sanity check. */
+	BUG_ON(num_bytes < 2048); /* Random sanity check. */
 
 	if (!count)
 		return;
